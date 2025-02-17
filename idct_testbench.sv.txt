@@ -1,0 +1,61 @@
+module IDCT_Testbench;
+
+    logic clk, rst, start;
+    logic done;
+    
+    logic [15:0] coeff_reg [0:7][0:7];  
+    wire [15:0] coeff [0:63];           
+    logic [7:0] pixel_out [0:7][0:7];   
+    
+    genvar i, j;
+    generate
+        for (i = 0; i < 8; i = i + 1) begin : row
+            for (j = 0; j < 8; j = j + 1) begin : col
+                assign coeff[i * 8 + j] = coeff_reg[i][j]; 
+            end
+        end
+    endgenerate
+
+    IDCT_Controller uut (
+        .clk(clk),
+        .rst(rst),
+        .start(start),
+        .done(done),
+        .coeff(coeff), 
+        .pixel_out(pixel_out)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        clk = 0;
+        rst = 1;
+        start = 0;
+        #10 rst = 0;
+        coeff_reg = '{
+            '{1024, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0},
+            '{0, 0, 0, 0, 0, 0, 0, 0}
+        };
+        #10 start = 1;
+        #10 start = 0;
+    end
+
+    always @(posedge clk) begin
+        if (done) begin
+            $display("IDCT completed.");
+            $display("Pixel output:");
+            foreach (pixel_out[i, j]) begin
+                $write("%h ", pixel_out[i][j]); 
+                if (j == 7) $write("\n"); 
+            end
+            $finish;
+        end
+    end
+
+endmodule

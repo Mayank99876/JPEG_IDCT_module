@@ -1,0 +1,84 @@
+`include "idct_1d.v"
+`include "idct_2d.v"
+
+module IDCT_Controller (
+    input logic clk,        
+    input logic rst,        
+    input logic start,      
+    output logic done,      
+    input wire [15:0] coeff [0:63],  
+    output logic [7:0] pixel_out [0:7][0:7] 
+);
+
+    logic signed [15:0] coeff_2D [0:7][0:7];  
+    logic signed [15:0] row_out [0:7][0:7];  
+    logic [2:0] state;                 
+    logic [2:0] row_index;             
+    logic idct1d_done;                 
+    logic idct2d_done;                 
+
+    
+    genvar i, j;
+    generate
+        for (i = 0; i < 8; i = i + 1) begin : row
+            for (j = 0; j < 8; j = j + 1) begin : col
+                assign coeff_2D[i][j] = coeff[i * 8 + j];  
+            end
+        end
+    endgenerate
+    
+    logic signed [15:0] row_out_wire [0:7];  
+
+   
+    always @(posedge clk) begin
+        if (idct1d_done)
+            row_out[row_index] <= row_out_wire; 
+    end
+
+    
+    IDCT_1D row_transform (
+        .clk(clk),
+        .rst(rst),
+        .coeff(coeff_2D[row_index]),  
+        .row_out(row_out_wire),       
+        .done(idct1d_done)            
+    );
+
+    
+    IDCT_2D col_transform (
+        .clk(clk),
+        .rst(rst),
+        .row_out(row_out),     
+        .pixel_out(pixel_out), 
+        .done(idct2d_done)    
+    );
+
+   
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state <= 0;
+            done <= 0;
+            row_index <= 0;
+        end else begin
+            case (state)
+                0: if (start) state <= 1; 
+                1: begin
+                    if (idct1d_done) begin
+                        if (row_index < 7) begin
+                            row_index <= row_index + 1;  
+                        end else begin
+                            state <= 2;  
+                        end
+                    end
+                end
+                2: state <= 3;
+                3: begin
+                    if (idct2d_done) begin
+                        done <= 1; 
+                        state <= 0; 
+                    end
+                end
+            endcase
+        end
+    end
+endmodule

@@ -1,0 +1,55 @@
+module IDCT_2D (
+    input clk,
+    input rst,
+    input signed [15:0] row_out [0:7][0:7],
+    output reg [7:0] pixel_out [0:7][0:7],
+    output reg done
+);
+
+    reg signed [15:0] cos_lut [0:7][0:7];
+
+    initial begin
+       cos_lut[0] = '{8192, 8192, 8192, 8192, 8192, 8192, 8192, 8192};
+       cos_lut[1] = '{11024, 8035, 3784, -1836, -1836, 3784, 8035, 11024};
+       cos_lut[2] = '{9632, 3784, -9633, 3784, 3784, -9633, 3784, 9632};
+       cos_lut[3] = '{8035, -1836, 11024, 3784, 3784, 11024, -1836, 8035};
+       cos_lut[4] = '{6726, -6726, -6726, 6726, 6726, -6726, -6726, 6726};
+       cos_lut[5] = '{3784, -1836, 8035, 11024, 11024, 8035, -1836, 3784};
+       cos_lut[6] = '{3784, -9633, 3784, 9632, 9632, 3784, -9633, 3784};
+       cos_lut[7] = '{-1836, 3784, 8035, 11024, 11024, 8035, 3784, -1836};
+    end
+
+    reg signed [31:0] acc [0:7];
+    reg signed [15:0] temp_val;
+    integer i, j, k;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            done <= 0;
+            for (i = 0; i < 8; i = i + 1) begin
+                for (j = 0; j < 8; j = j + 1) 
+                    pixel_out[i][j] <= 8'd0;
+            end
+        end else begin
+            for (i = 0; i < 8; i = i + 1) begin
+                for (j = 0; j < 8; j = j + 1) begin
+                    acc[j] = 0;
+                    for (k = 0; k < 8; k = k + 1) begin
+                        acc[j] = acc[j] + (row_out[k][i] * cos_lut[j][k]);
+                    end
+
+                    temp_val = (acc[j] >>> 8) + 128;
+
+                    if (temp_val < 0)
+                        pixel_out[i][j] <= 8'd0;
+                    else if (temp_val > 255)
+                        pixel_out[i][j] <= 8'd255;
+                    else
+                        pixel_out[i][j] <= temp_val[7:0];
+                end
+            end
+            done <= 1;
+        end
+    end
+
+endmodule
